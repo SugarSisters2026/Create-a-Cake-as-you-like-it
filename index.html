@@ -25,14 +25,61 @@ body.embedded{background:#fff}
 .side{background:#fff;border-right:1px solid var(--bd);overflow-y:auto;height:100%}
 .pnl{display:none;padding:10px 12px}
 .pnl.a{display:block}
-/* ── MOBILE: stacked — only below 480px ── */
+/* ── MOBILE: slide-up drawer — only below 480px ── */
 @media(max-width:480px){
-  .wrap{grid-template-columns:1fr;grid-template-rows:auto auto;min-height:auto}
-  .side{height:auto;position:static;border-right:none;overflow-y:auto;order:2;max-height:none}
-  .pv{width:100%!important;flex-shrink:1;padding:8px;order:1}
-  .cw-wrap{max-width:360px;margin:0 auto;width:100%}
+  .wrap{grid-template-columns:1fr;min-height:auto;position:relative}
+  /* preview fills screen */
+  .pv{width:100%!important;padding:4px;order:1;min-height:calc(100vh - 92px)}
+  .cw-wrap{max-width:100%;margin:0 auto;width:100%}
+  /* side panel is the drawer — fixed at bottom, slides up */
+  .side{
+    position:fixed;bottom:0;left:0;right:0;z-index:200;
+    height:auto;max-height:80vh;
+    background:#fff;border-right:none;
+    border-radius:20px 20px 0 0;
+    box-shadow:0 -4px 24px rgba(0,0,0,0.18);
+    overflow-y:auto;
+    transform:translateY(calc(100% - 52px));
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
+    order:2;
+  }
+  .side.open{transform:translateY(0)}
+  /* drawer handle bar */
+  .side::before{
+    content:'';display:block;width:44px;height:5px;
+    background:#ddd;border-radius:3px;
+    margin:10px auto 0;
+    flex-shrink:0;
+  }
+  /* drawer toggle button */
+  .drawer-toggle{
+    display:flex!important;
+    position:sticky;top:0;left:0;right:0;
+    width:100%;padding:10px 16px 12px;
+    background:#fff;border:none;cursor:pointer;
+    align-items:center;justify-content:space-between;
+    font-family:'Nunito',Arial,sans-serif;
+    font-size:13px;font-weight:800;color:var(--pk);
+    border-bottom:1px solid var(--bd);
+    z-index:1;touch-action:manipulation;
+  }
+  .drawer-toggle .arrow{
+    font-size:18px;transition:transform .3s;
+  }
+  .side.open .drawer-toggle .arrow{transform:rotate(180deg)}
   .hdr svg{height:30px}
   .st b{font-size:13px}
+  /* canvas hint */
+  .mobile-hint{
+    display:block!important;
+    text-align:center;font-size:11px;font-weight:700;
+    color:#fff;background:rgba(0,0,0,0.45);
+    border-radius:20px;padding:5px 14px;
+    position:absolute;bottom:70px;left:50%;transform:translateX(-50%);
+    white-space:nowrap;animation:hintfade 4s ease forwards;
+    pointer-events:none;z-index:10;
+  }
+  @keyframes hintfade{0%{opacity:0}10%{opacity:1}70%{opacity:1}100%{opacity:0}}
 }
 /* ── layout picker ── */
 .sec{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#333;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--pklt)}
@@ -174,7 +221,11 @@ body.embedded{background:#fff}
 </script>
 
 <div class="wrap">
-<div class="side">
+<div class="side" id="sideDrawer">
+<button class="drawer-toggle" id="drawerToggle" onclick="toggleDrawer()" style="display:none">
+  <span id="drawerLabel">✏️ Tap to design your topper</span>
+  <span class="arrow">▲</span>
+</button>
 
 <!-- ══ STEP 0: LAYOUT ══ -->
 <div class="pnl a" id="pn0">
@@ -396,6 +447,7 @@ body.embedded{background:#fff}
   </div>
   <div class="cw-wrap">
     <div class="cw"><canvas id="cv" width="488" height="700"></canvas></div>
+    <div class="mobile-hint" id="mobileHint" style="display:none">✏️ Tap the bar below to design</div>
   </div>
   <div class="stag" id="stag">👆 Drag to reposition</div>
 </div>
@@ -453,6 +505,16 @@ function syncPresetBtns(layer){
 function pickLayoutAndAdvance(el,idx){
   pickLayout(el,idx);
   go(1);
+  /* auto-open drawer on mobile so tools are visible */
+  if(isMobile()){
+    setTimeout(function(){
+      _drawerOpen=true;
+      var side=ge('sideDrawer');
+      var label=ge('drawerLabel');
+      if(side)side.classList.add('open');
+      if(label)label.textContent='▼ Close';
+    },200);
+  }
 }
 
 /* ════════════════════════════════
@@ -1156,6 +1218,29 @@ function confirmAndAdd(){
 }
 function ge(id){return document.getElementById(id);}
 
+/* ── MOBILE DRAWER ── */
+var _drawerOpen=false;
+function toggleDrawer(){
+  _drawerOpen=!_drawerOpen;
+  var side=ge('sideDrawer');
+  var label=ge('drawerLabel');
+  if(side){side.classList.toggle('open',_drawerOpen);}
+  if(label){label.textContent=_drawerOpen?'▼ Close':'✏️ Tap to design your topper';}
+}
+function isMobile(){return window.innerWidth<=480;}
+function initMobile(){
+  if(!isMobile())return;
+  var toggle=ge('drawerToggle');
+  var hint=ge('mobileHint');
+  if(toggle)toggle.style.display='flex';
+  if(hint){hint.style.display='block';setTimeout(function(){hint.style.display='none';},4500);}
+}
+window.addEventListener('resize',function(){
+  var toggle=ge('drawerToggle');
+  if(toggle)toggle.style.display=isMobile()?'flex':'none';
+  if(!isMobile()){var side=ge('sideDrawer');if(side)side.classList.remove('open');}
+});
+
 /* ════════════════════════════════
    INIT
 ════════════════════════════════ */
@@ -1239,7 +1324,8 @@ window.addEventListener('load',function(){
     drawPreviews();
     var lo0=ge('lo0');if(lo0)pickLayout(lo0,0);
     saveHist();syncArchBtns('l1');syncArchBtns('l2');syncTools();updateZoomLbl();draw();
-    showUploadZone(); /* always start with upload box visible, no thumbnail */
+    showUploadZone();
+    initMobile();
   },80);
 });
 </script>
